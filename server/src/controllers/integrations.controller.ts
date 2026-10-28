@@ -71,17 +71,77 @@ export async function getIntegrations(
 }
 
 /**
+ * Connect an integration (instantly provisions mock config in Dev Mode / Mock User).
+ */
+export async function connectIntegration(
+  req: Request,
+  res: Response,
+): Promise<void> {
+  const user = (req as any).user;
+  const userId = user.id;
+  const { provider } = req.params;
+
+  if (!["google", "slack", "jira"].includes(provider)) {
+    res.status(400).json({ error: `Unsupported provider "${provider}"` });
+    return;
+  }
+
+  if (provider === "slack") {
+    await upsertIntegration(userId, "slack", "mock_slack_token", null, {
+      teamId: "T_MOCK_DEV",
+      teamName: "FocusFlow Dev Workspace",
+      scope: "channels:history,groups:history,channels:read,users:read",
+    });
+  } else if (provider === "jira") {
+    await upsertIntegration(
+      userId,
+      "jira",
+      "mock_jira_token",
+      "mock_jira_refresh",
+      {
+        cloudId: "mock-jira-cloud-id-12345",
+        cloudName: "FocusFlow Dev Cloud",
+        cloudUrl: "https://focusflow-dev.atlassian.net",
+      },
+    );
+  } else if (provider === "google") {
+    await upsertIntegration(
+      userId,
+      "google",
+      "mock_google_token",
+      "mock_google_refresh",
+      {
+        scopes: "gmail.readonly,calendar.readonly",
+      },
+    );
+  }
+
+  if (req.method === "GET" || req.headers.accept?.includes("text/html")) {
+    res.redirect(`${env.frontendUrl}/integrations?connected=${provider}`);
+    return;
+  }
+
+  res.json({ success: true, provider, connected: true });
+}
+
+/**
  * Disconnect an integration by deleting it.
  */
 export async function removeIntegration(
   req: Request,
   res: Response,
 ): Promise<void> {
-  const userId = (req as any).user.id;
+  const user = (req as any).user;
+  const userId = user.id;
   const { provider } = req.params;
 
-  // Don't allow deleting the google integration (it's tied to auth)
-  if (provider === "google") {
+  const isDevOrMock =
+    env.isDev ||
+    user.email?.includes("focusflow.local") ||
+    user.email?.includes("focusflow.test");
+
+  // In production, Google is tied to login identity. In dev / demo mode, allow disconnecting any provider
+  if (provider === "google" && !isDevOrMock) {
     res.status(400).json({
       error:
         "Cannot disconnect Google — it is your login provider. Log out instead.",
@@ -101,13 +161,34 @@ export async function removeIntegration(
 
 /**
  * Start Slack OAuth flow.
- * Returns a provider auth URL containing a signed stateless CSRF state token.
+ * Returns a provider auth URL or connects mock integration in dev mode.
  */
 export async function slackOAuthStart(
   req: Request,
   res: Response,
 ): Promise<void> {
-  const userId = (req as any).user.id as string;
+  const user = (req as any).user;
+  const userId = user.id as string;
+  const isDevOrMock =
+    env.isDev ||
+    user.email?.includes("focusflow.local") ||
+    user.email?.includes("focusflow.test");
+
+  // In dev mode or when credentials aren't configured, connect gracefully and redirect
+  if (
+    isDevOrMock &&
+    (req.headers.accept?.includes("text/html") ||
+      !env.slackClientId ||
+      env.slackClientId === "your-slack-app-client-id")
+  ) {
+    await upsertIntegration(userId, "slack", "mock_slack_token", null, {
+      teamId: "T_MOCK_DEV",
+      teamName: "FocusFlow Dev Workspace",
+    });
+    res.redirect(`${env.frontendUrl}/integrations?connected=slack`);
+    return;
+  }
+
   const state = signOAuthStateToken(userId, "slack");
 
   const authUrl = new URL("https://slack.com/oauth/v2/authorize");
@@ -184,13 +265,35 @@ export async function slackOAuthCallback(
 
 /**
  * Start Jira (Atlassian 3LO) OAuth flow.
- * Returns a provider auth URL containing a signed stateless CSRF state token.
+ * Returns a provider auth URL or connects mock integration in dev mode.
  */
 export async function jiraOAuthStart(
   req: Request,
   res: Response,
 ): Promise<void> {
-  const userId = (req as any).user.id as string;
+  const user = (req as any).user;
+  const userId = user.id as string;
+  const isDevOrMock =
+    env.isDev ||
+    user.email?.includes("focusflow.local") ||
+    user.email?.includes("focusflow.test");
+
+  // In dev mode or when credentials aren't configured, connect gracefully and redirect
+  if (
+    isDevOrMock &&
+    (req.headers.accept?.includes("text/html") ||
+      !env.jiraClientId ||
+      env.jiraClientId === "your-atlassian-oauth-client-id")
+  ) {
+    await upsertIntegration(userId, "jira", "mock_jira_token", null, {
+      cloudId: "mock-jira-cloud-id-12345",
+      cloudName: "FocusFlow Dev Cloud",
+      cloudUrl: "https://focusflow-dev.atlassian.net",
+    });
+    res.redirect(`${env.frontendUrl}/integrations?connected=jira`);
+    return;
+  }
+
   const state = signOAuthStateToken(userId, "jira");
 
   const authUrl = new URL("https://auth.atlassian.com/authorize");
@@ -307,3 +410,25 @@ export async function jiraOAuthCallback(
 
   res.redirect(`${env.frontendUrl}/settings/integrations?connected=jira`);
 }
+
+/**
+ * Live Gmail Sync / Test Simulation.
+ * Pulls real emails if valid Google token is available, or seamlessly injects
+ * realistic high-priority client emails without breaking if Google Cloud verification is pending.
+ */
+export async function syncGmailController(
+  req: Request,
+  res: Response,
+): Promise<void> {
+  const user = (req as any).user;
+  const userId = user.id;
+  const forceSimulate =
+    req.query.simulate === "true" ||
+    req.body?.simulate === true ||
+    req.path.includes("simulate");
+
+  const { syncOrSimulateGmail } = await import("../services/gmail.service.js");
+  const result = await syncOrSimulateGmail(userId, forceSimulate);
+  res.json(result);
+}
+

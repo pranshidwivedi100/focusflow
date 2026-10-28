@@ -15,7 +15,7 @@ const useCrossSiteCookie =
   isNgrokUrl(env.slackRedirectUri) ||
   isNgrokUrl(env.jiraRedirectUri);
 
-const cookieSecure = true;
+const cookieSecure = env.isProd || useCrossSiteCookie;
 const cookieSameSite: "none" | "lax" = useCrossSiteCookie ? "none" : "lax";
 
 /**

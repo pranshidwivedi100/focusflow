@@ -1,5 +1,9 @@
 import pg from 'pg';
 import { env } from './env.js';
+import { setupDnsResolver } from './dns.js';
+
+// Ensure DNS fallback is initialized before connecting to remote cloud databases
+setupDnsResolver();
 
 /**
  * PostgreSQL connection pool.
@@ -11,7 +15,8 @@ export const pool = new pg.Pool({
   // Sensible defaults for a small-to-medium app
   max: 20,             // max connections in pool
   idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 5000,
+  connectionTimeoutMillis: 10000,
+  ssl: env.databaseUrl.includes('neon.tech') ? { rejectUnauthorized: false } : undefined,
 });
 
 // Log pool errors (connection drops, etc.) — don't let them crash silently

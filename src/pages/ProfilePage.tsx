@@ -63,6 +63,8 @@ const ProfilePage = () => {
     loadProfile();
   }, []);
 
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+
   const integrationCards = useMemo(() => {
     const providers = new Set(
       integrations.map((integration) => integration.provider),
@@ -72,30 +74,76 @@ const ProfilePage = () => {
     return [
       {
         name: "Gmail",
+        provider: "google",
+        connected: isGoogleConnected,
         status: isGoogleConnected ? "Connected" : "Offline",
         accent: isGoogleConnected ? "text-blue-600" : "text-slate-600",
         accentBg: isGoogleConnected ? "bg-blue-50" : "bg-slate-100",
       },
       {
         name: "Google Calendar",
+        provider: "google",
+        connected: isGoogleConnected,
         status: isGoogleConnected ? "Connected" : "Offline",
         accent: isGoogleConnected ? "text-blue-600" : "text-slate-600",
         accentBg: isGoogleConnected ? "bg-blue-50" : "bg-slate-100",
       },
       {
         name: "Slack",
+        provider: "slack",
+        connected: providers.has("slack"),
         status: providers.has("slack") ? "Connected" : "Offline",
         accent: providers.has("slack") ? "text-emerald-600" : "text-slate-600",
         accentBg: providers.has("slack") ? "bg-emerald-50" : "bg-slate-100",
       },
       {
         name: "Jira",
+        provider: "jira",
+        connected: providers.has("jira"),
         status: providers.has("jira") ? "Connected" : "Offline",
         accent: providers.has("jira") ? "text-amber-600" : "text-slate-600",
         accentBg: providers.has("jira") ? "bg-amber-50" : "bg-slate-100",
       },
     ];
   }, [integrations]);
+
+  const handleToggleIntegration = async (provider: string, isConnected: boolean) => {
+    setActionLoading(provider);
+    setError(null);
+    try {
+      if (isConnected) {
+        const response = await fetch(`/api/integrations/${provider}`, {
+          method: "DELETE",
+          credentials: "include",
+        });
+        if (response.ok) {
+          setIntegrations((prev) => prev.filter((i) => i.provider !== provider));
+        } else {
+          const payload = await response.json();
+          throw new Error(payload.error || "Failed to disconnect");
+        }
+      } else {
+        const response = await fetch(`/api/integrations/${provider}/connect`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+        });
+        if (response.ok) {
+          setIntegrations((prev) => {
+            const filtered = prev.filter((i) => i.provider !== provider);
+            return [...filtered, { provider, connected: true }];
+          });
+        } else {
+          const payload = await response.json();
+          throw new Error(payload.error || "Failed to connect");
+        }
+      }
+    } catch (err: any) {
+      setError(err.message || "Failed to update integration");
+    } finally {
+      setActionLoading(null);
+    }
+  };
 
   const handleSave = async () => {
     setError(null);
@@ -307,19 +355,27 @@ const ProfilePage = () => {
         ) : null}
 
         <section className="mt-12">
-          <div className="mb-6">
-            <h2 className="text-2xl font-semibold text-slate-900">
-              Integration Settings
-            </h2>
-            <p className="mt-2 text-sm text-slate-600">
-              Manage your connected workflows and automated task syncs.
-            </p>
+          <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+            <div>
+              <h2 className="text-2xl font-semibold text-slate-900">
+                Integration Settings
+              </h2>
+              <p className="mt-2 text-sm text-slate-600">
+                Manage your connected workflows and automated task syncs.
+              </p>
+            </div>
+            <button
+              className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-blue-600 shadow-xs hover:bg-slate-50 self-start sm:self-auto cursor-pointer"
+              onClick={() => navigate("/integrations")}
+            >
+              Open Integrations Hub
+            </button>
           </div>
           <div className="grid gap-6 md:grid-cols-2">
             {integrationCards.map((integration) => (
               <div
                 key={integration.name}
-                className="rounded-xl border border-slate-100 bg-white p-6 shadow-sm"
+                className="rounded-xl border border-slate-100 bg-white p-6 shadow-sm flex flex-col justify-between"
               >
                 <div className="flex items-start justify-between">
                   <div>
@@ -335,6 +391,35 @@ const ProfilePage = () => {
                   >
                     {integration.status}
                   </div>
+                </div>
+                <div className="mt-6 flex items-center justify-end">
+                  {integration.connected ? (
+                    <button
+                      type="button"
+                      disabled={actionLoading === integration.provider}
+                      className="rounded-lg border border-rose-200 bg-white px-3 py-1.5 text-xs font-semibold text-rose-600 shadow-xs transition hover:bg-rose-50 disabled:opacity-50 cursor-pointer"
+                      onClick={() =>
+                        handleToggleIntegration(integration.provider, true)
+                      }
+                    >
+                      {actionLoading === integration.provider
+                        ? "Saving..."
+                        : "Disconnect"}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={actionLoading === integration.provider}
+                      className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white shadow-xs transition hover:bg-blue-700 disabled:opacity-50 cursor-pointer"
+                      onClick={() =>
+                        handleToggleIntegration(integration.provider, false)
+                      }
+                    >
+                      {actionLoading === integration.provider
+                        ? "Connecting..."
+                        : "Connect"}
+                    </button>
+                  )}
                 </div>
               </div>
             ))}

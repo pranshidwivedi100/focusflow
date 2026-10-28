@@ -7,6 +7,7 @@ export interface DbTask {
   original_item_id: string | null;
   native_url: string | null;
   title: string;
+  category: string | null;
   status: "pending" | "completed" | "dismissed";
   urgency_score: number | null;
   importance_score: number | null;
@@ -33,18 +34,36 @@ export async function createTasksFromAnalysis(
     title: string;
     urgencyScore: number;
     importanceScore: number;
+    category?: string | null;
   }>,
 ): Promise<DbTask[]> {
   if (tasks.length === 0) return [];
 
-  // Build parameterized multi-row INSERT
+  // Build parameterized multi-row INSERT with calculated due_at
   const values: unknown[] = [];
   const placeholders: string[] = [];
 
+  const now = Date.now();
+  const endOfToday = new Date();
+  endOfToday.setHours(23, 59, 59, 999);
+  const endOfTomorrow = new Date(endOfToday);
+  endOfTomorrow.setDate(endOfTomorrow.getDate() + 1);
+
   tasks.forEach((task, i) => {
-    const offset = i * 7;
+    let dueAt: Date;
+    if (task.urgencyScore >= 0.85) {
+      dueAt = new Date(now + 50 * 60 * 1000); // 50 mins (due in 1 hour)
+    } else if (task.urgencyScore >= 0.7) {
+      dueAt = new Date(now + 3.5 * 60 * 60 * 1000); // 3.5 hours (due in 5 hours)
+    } else if (task.urgencyScore >= 0.45) {
+      dueAt = endOfToday;
+    } else {
+      dueAt = endOfTomorrow;
+    }
+
+    const offset = i * 9;
     placeholders.push(
-      `($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4}, $${offset + 5}, $${offset + 6}, $${offset + 7})`,
+      `($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4}, $${offset + 5}, $${offset + 6}, $${offset + 7}, $${offset + 8}, $${offset + 9})`,
     );
     values.push(
       userId,
@@ -54,11 +73,13 @@ export async function createTasksFromAnalysis(
       task.title,
       task.urgencyScore,
       task.importanceScore,
+      dueAt,
+      task.category ?? null,
     );
   });
 
   const result = await pool.query<DbTask>(
-    `INSERT INTO tasks (user_id, analysis_id, original_item_id, native_url, title, urgency_score, importance_score)
+    `INSERT INTO tasks (user_id, analysis_id, original_item_id, native_url, title, urgency_score, importance_score, due_at, category)
      VALUES ${placeholders.join(", ")}
      RETURNING *`,
     values,
@@ -128,7 +149,7 @@ export async function listTasks(
     const result = await pool.query<DbTask>(
       `SELECT * FROM tasks
        WHERE user_id = $1 AND status = $2
-       ORDER BY created_at DESC
+       ORDER BY urgency_score DESC NULLS LAST, created_at DESC
        LIMIT $3`,
       [userId, status, limit],
     );
@@ -138,7 +159,7 @@ export async function listTasks(
   const result = await pool.query<DbTask>(
     `SELECT * FROM tasks
      WHERE user_id = $1
-     ORDER BY created_at DESC
+     ORDER BY CASE WHEN status = 'pending' THEN 0 ELSE 1 END, urgency_score DESC NULLS LAST, created_at DESC
      LIMIT $2`,
     [userId, limit],
   );

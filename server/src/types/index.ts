@@ -22,6 +22,16 @@ export interface InboxItem {
   nativeUrl?: string | null;
 }
 
+export type TaskCategory =
+  | "Email Action"
+  | "Meeting"
+  | "Blocker"
+  | "Bug"
+  | "Client"
+  | "Internal"
+  | "Project"
+  | "Admin";
+
 export interface PrioritizedTask {
   id: string;
   originalItemId: string;
@@ -31,7 +41,7 @@ export interface PrioritizedTask {
   importanceScore: number;
   reason: string;
   suggestedAction: string;
-  category: "Client" | "Internal" | "Project" | "Admin";
+  category: TaskCategory;
 }
 
 export type CategoryType = "Urgent" | "Important" | "Routine" | "Noise";

@@ -5,16 +5,19 @@ import DashboardPage from "./pages/DashboardPage";
 import AuthSignupPage from "./pages/AuthSignupPage";
 import IntegrationsModalPage from "./pages/IntegrationsModalPage";
 import AuthLoginPage from "./pages/AuthLoginPage";
+import { ToastProvider } from "./components/ToastAlert";
 
 const App = () => (
-  <Routes>
-    <Route path="/" element={<LandingPage />} />
-    <Route path="/profile" element={<ProfilePage />} />
-    <Route path="/dashboard" element={<DashboardPage />} />
-    <Route path="/signup" element={<AuthSignupPage />} />
-    <Route path="/integrations" element={<IntegrationsModalPage />} />
-    <Route path="/login" element={<AuthLoginPage />} />
-  </Routes>
+  <ToastProvider>
+    <Routes>
+      <Route path="/" element={<LandingPage />} />
+      <Route path="/profile" element={<ProfilePage />} />
+      <Route path="/dashboard" element={<DashboardPage />} />
+      <Route path="/signup" element={<AuthSignupPage />} />
+      <Route path="/integrations" element={<IntegrationsModalPage />} />
+      <Route path="/login" element={<AuthLoginPage />} />
+    </Routes>
+  </ToastProvider>
 );
 
 export default App;

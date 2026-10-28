@@ -1,7 +1,11 @@
+import { setupDnsResolver } from './config/dns.js';
 import { createApp } from './app.js';
 import { connectDatabase } from './config/database.js';
 import { connectRedis } from './config/redis.js';
 import { env } from './config/env.js';
+
+// Initialize resilient public DNS fallback for cloud databases
+setupDnsResolver();
 
 /**
  * Server bootstrap — connects to Postgres + Redis, then starts Express.

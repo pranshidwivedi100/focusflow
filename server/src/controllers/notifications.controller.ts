@@ -1,7 +1,8 @@
 import type { Request, Response } from "express";
-import { listOpenTasksWithDueAt } from "../db/queries/tasks.queries.js";
+import { listOpenTasksWithDueAt, listTasks } from "../db/queries/tasks.queries.js";
+import { redisClient } from "../config/redis.js";
 
-function buildNotifications(
+function buildNotificationsBuckets(
   tasks: Array<{
     id: string;
     title: string;
@@ -64,15 +65,57 @@ function buildNotifications(
   ];
 }
 
+/**
+ * Returns active notifications, unread count, urgent/P0 items, and bucket summaries.
+ */
 export async function getNotifications(
   req: Request,
   res: Response,
 ): Promise<void> {
   const userId = (req as any).user.id as string;
-  const tasks = await listOpenTasksWithDueAt(userId);
 
-  const notifications = buildNotifications(
-    tasks.map((task) => ({
+  // Retrieve pending open tasks
+  const pendingTasks = await listTasks(userId, "pending", 50);
+
+  // Retrieve set of read notification IDs from Redis
+  let readSet = new Set<string>();
+  try {
+    const rawRead = await redisClient.sMembers(`focusflow:notifications:read:${userId}`);
+    readSet = new Set(rawRead || []);
+  } catch (err) {
+    console.warn("[Notifications] Redis read set error:", err);
+  }
+
+  const items = pendingTasks.map((t) => {
+    const urgency = Number(t.urgency_score ?? 0);
+    const importance = Number(t.importance_score ?? 0);
+    const isUrgent = urgency >= 0.70;
+    const isP0 = urgency >= 0.85;
+    const isRead = readSet.has(t.id);
+
+    return {
+      id: t.id,
+      title: t.title,
+      category: t.category || (isUrgent ? "Blocker" : "Email Action"),
+      urgencyScore: urgency,
+      importanceScore: importance,
+      isUrgent,
+      isP0,
+      dueAt: t.due_at,
+      createdAt: t.created_at,
+      nativeUrl: t.native_url,
+      read: isRead,
+    };
+  });
+
+  // Calculate live badge count: pending urgent items that haven't been marked read
+  const unreadUrgentCount = items.filter((i) => i.isUrgent && !i.read).length;
+  const unreadTotalCount = items.filter((i) => !i.read).length;
+  const p0Count = items.filter((i) => i.isP0 && !i.read).length;
+
+  const deadlineTasks = await listOpenTasksWithDueAt(userId);
+  const buckets = buildNotificationsBuckets(
+    deadlineTasks.map((task) => ({
       id: task.id,
       title: task.title,
       due_at: task.due_at,
@@ -81,5 +124,42 @@ export async function getNotifications(
     })),
   );
 
-  res.json({ notifications });
+  res.json({
+    unreadCount: unreadUrgentCount,
+    unreadTotalCount,
+    p0Count,
+    items,
+    notifications: buckets,
+  });
+}
+
+/**
+ * Marks individual notification or all active notifications as read.
+ */
+export async function markNotificationsRead(
+  req: Request,
+  res: Response,
+): Promise<void> {
+  const userId = (req as any).user.id as string;
+  const { id, all } = req.body as { id?: string; all?: boolean };
+
+  try {
+    const redisKey = `focusflow:notifications:read:${userId}`;
+    if (all) {
+      const pendingTasks = await listTasks(userId, "pending", 50);
+      const ids = pendingTasks.map((t) => t.id);
+      if (ids.length > 0) {
+        await redisClient.sAdd(redisKey, ids);
+        await redisClient.expire(redisKey, 86400 * 7); // 7 days
+      }
+    } else if (id) {
+      await redisClient.sAdd(redisKey, id);
+      await redisClient.expire(redisKey, 86400 * 7);
+    }
+
+    res.json({ success: true, message: "Notifications marked as read" });
+  } catch (err: any) {
+    console.error("[Notifications] Mark read error:", err);
+    res.status(500).json({ error: "Failed to mark notifications as read" });
+  }
 }

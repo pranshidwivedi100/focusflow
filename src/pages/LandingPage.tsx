@@ -83,6 +83,14 @@ const LandingPage = () => {
           </div>
           <div className="flex items-center gap-3">
             <button
+              className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-400/40 bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold text-emerald-300 transition hover:bg-emerald-500/20"
+              onClick={() => {
+                window.location.href = "/auth/mock";
+              }}
+            >
+              ⚡ Dev Demo Login
+            </button>
+            <button
               className="text-sm font-semibold text-slate-200"
               onClick={() => navigate("/login")}
             >
@@ -117,11 +125,19 @@ const LandingPage = () => {
             </p>
             <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
               <button
-                className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-6 py-3 text-sm font-semibold text-white shadow-md"
+                className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-6 py-3 text-sm font-semibold text-white shadow-md hover:bg-blue-700"
                 onClick={() => navigate("/signup")}
               >
                 Get Started
                 <ArrowRight className="h-4 w-4" />
+              </button>
+              <button
+                className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-6 py-3 text-sm font-semibold text-white shadow-md hover:from-emerald-500 hover:to-teal-500"
+                onClick={() => {
+                  window.location.href = "/auth/mock";
+                }}
+              >
+                ⚡ Dev Demo (Skip OAuth)
               </button>
             </div>
           </div>

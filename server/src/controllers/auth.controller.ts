@@ -8,12 +8,18 @@ import {
   upsertUserAndGoogleIntegration,
   createUserSession,
 } from "../services/auth.service.js";
-import { listIntegrations } from "../db/queries/integrations.queries.js";
+import {
+  listIntegrations,
+  upsertIntegration,
+} from "../db/queries/integrations.queries.js";
 import {
   createLocalUser,
   findUserByEmail,
   updatePasswordHash,
+  upsertUser,
 } from "../db/queries/users.queries.js";
+import { listTasks } from "../db/queries/tasks.queries.js";
+import { pool } from "../config/database.js";
 import {
   createPasswordReset,
   findActivePasswordReset,
@@ -261,4 +267,93 @@ export async function logout(req: Request, res: Response): Promise<void> {
     });
     res.json({ success: true });
   });
+}
+
+/**
+ * Developer / Mock login bypass for testing without Google OAuth credentials.
+ */
+export async function mockLogin(
+  req: Request,
+  res: Response,
+): Promise<void> {
+  const email = "dev@focusflow.local";
+  const name = "Demo Developer";
+  const avatarUrl =
+    "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=256&q=80";
+
+  try {
+    const user = await upsertUser(email, name, avatarUrl);
+
+    // Ensure default Google integration is active for demo user
+    await upsertIntegration(
+      user.id,
+      "google",
+      "mock_google_token",
+      "mock_google_refresh",
+      {
+        scopes: "gmail.readonly,calendar.readonly",
+      },
+    );
+
+    // Seed realistic demo tasks if user has no tasks yet
+    const existingTasks = await listTasks(user.id);
+    if (existingTasks.length === 0) {
+      const demoTasks = [
+        {
+          title: "Review and approve Q4 engineering roadmap proposal",
+          urgency: 0.95,
+          importance: 0.9,
+          dueOffsetHours: 1,
+        },
+        {
+          title: "Address high-priority security audit findings on session encryption",
+          urgency: 0.85,
+          importance: 0.92,
+          dueOffsetHours: 4,
+        },
+        {
+          title: "Unblock enterprise customer SSO deployment on Slack & Jira",
+          urgency: 0.75,
+          importance: 0.85,
+          dueOffsetHours: 8,
+        },
+        {
+          title: "Sync with product design team on kinetic dashboard animations",
+          urgency: 0.45,
+          importance: 0.7,
+          dueOffsetHours: 24,
+        },
+        {
+          title: "Clean up routine dependency deprecation warnings",
+          urgency: 0.25,
+          importance: 0.4,
+          dueOffsetHours: 48,
+        },
+      ];
+
+      for (const t of demoTasks) {
+        const dueAt = new Date(Date.now() + t.dueOffsetHours * 60 * 60 * 1000);
+        await pool.query(
+          `INSERT INTO tasks (user_id, title, status, urgency_score, importance_score, due_at)
+           VALUES ($1, $2, 'pending', $3, $4, $5)`,
+          [user.id, t.title, t.urgency, t.importance, dueAt],
+        );
+      }
+    }
+
+    await createUserSession(req, user);
+
+    if (req.method === "GET" || req.headers.accept?.includes("text/html")) {
+      res.redirect(`${env.frontendUrl}/dashboard`);
+      return;
+    }
+
+    res.json({
+      message: "Logged in as demo developer",
+      user: formatUser(user),
+    });
+  } catch (err) {
+    console.error("[Auth] Mock login error:", err);
+    res.status(500).json({ error: "Failed to create mock session" });
+  }
 }

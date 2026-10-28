@@ -69,6 +69,7 @@ export async function analyzeInbox(req: Request, res: Response): Promise<void> {
           title: priority.title,
           urgencyScore: priority.urgencyScore,
           importanceScore: priority.importanceScore,
+          category: priority.category,
         })),
       );
     }

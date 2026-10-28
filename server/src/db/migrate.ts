@@ -1,6 +1,9 @@
 import { readFileSync } from 'fs';
 import path from 'path';
+import { setupDnsResolver } from '../config/dns.js';
 import { pool } from '../config/database.js';
+
+setupDnsResolver();
 
 /**
  * Simple migration runner — executes schema.sql against the database.

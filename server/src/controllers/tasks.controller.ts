@@ -4,6 +4,7 @@ import {
   updateTaskStatusByOriginalItemId,
   listTasks,
 } from "../db/queries/tasks.queries.js";
+import { redisClient } from "../config/redis.js";
 
 /**
  * Update a task's status (complete or dismiss).
@@ -26,6 +27,9 @@ export async function patchTask(req: Request, res: Response): Promise<void> {
     res.status(404).json({ error: "Task not found" });
     return;
   }
+
+  // Immediately track in read notifications set
+  redisClient.sAdd(`focusflow:notifications:read:${userId}`, id).catch(() => {});
 
   res.json({ task });
 }

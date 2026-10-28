@@ -56,4 +56,24 @@ describe("AnalysisResultSchema", () => {
     const parsed = AnalysisResultSchema.parse(makeValidAnalysisResult());
     expect(parsed.lowConfidence).toBe(false);
   });
+
+  it("normalizes 0-100 percentage scores to 0-1 range", () => {
+    const data = makeValidAnalysisResult();
+    data.topPriorities[0].urgencyScore = 95;
+    data.topPriorities[0].importanceScore = 88;
+
+    const parsed = AnalysisResultSchema.parse(data);
+    expect(parsed.topPriorities[0].urgencyScore).toBe(0.95);
+    expect(parsed.topPriorities[0].importanceScore).toBe(0.88);
+  });
+
+  it("validates Email Action, Meeting, Blocker, Bug category tags", () => {
+    const categories = ["Email Action", "Meeting", "Blocker", "Bug"] as const;
+    for (const cat of categories) {
+      const data = makeValidAnalysisResult();
+      data.topPriorities[0].category = cat;
+      const parsed = AnalysisResultSchema.parse(data);
+      expect(parsed.topPriorities[0].category).toBe(cat);
+    }
+  });
 });

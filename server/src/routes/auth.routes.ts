@@ -4,11 +4,16 @@ import {
   googleAuthCallback,
   getCurrentUser,
   logout,
+  mockLogin,
 } from "../controllers/auth.controller.js";
 import { requireAuth } from "../middleware/auth.js";
 import { asyncHandler } from "../middleware/errorHandler.js";
 
 const router = Router();
+
+// Development/Mock login bypass for local testing
+router.get("/mock", asyncHandler(mockLogin));
+router.post("/mock", asyncHandler(mockLogin));
 
 // Initiate Google OAuth — redirects to Google's consent screen
 router.get("/google", asyncHandler(googleAuthRedirect));

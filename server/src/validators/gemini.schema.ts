@@ -6,16 +6,40 @@ import { z } from "zod";
  * missing fields, or wrong types. Zod catches all of that at runtime.
  */
 
+const ScoreSchema = z
+  .number()
+  .superRefine((val, ctx) => {
+    // Valid values are either 0 <= val <= 1, or 2 <= val <= 100 (percentage)
+    if (val < 0 || (val > 1 && val < 2) || val > 100) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Score must be within 0-1 range or 2-100 percentage range",
+      });
+    }
+  })
+  .transform((val) => (val > 1 ? Number((val / 100).toFixed(3)) : Number(val.toFixed(3))));
+
 const PrioritizedTaskSchema = z.object({
   id: z.string(),
   originalItemId: z.string(),
   title: z.string(),
-  summary: z.string(),
-  urgencyScore: z.number().min(0).max(1),
-  importanceScore: z.number().min(0).max(1),
-  reason: z.string(),
-  suggestedAction: z.string(),
-  category: z.enum(["Client", "Internal", "Project", "Admin"]),
+  summary: z.string().default(""),
+  urgencyScore: ScoreSchema,
+  importanceScore: ScoreSchema,
+  reason: z.string().default("High business priority requiring prompt triage"),
+  suggestedAction: z.string().default("Review item and resolve with team"),
+  category: z
+    .enum([
+      "Email Action",
+      "Meeting",
+      "Blocker",
+      "Bug",
+      "Client",
+      "Internal",
+      "Project",
+      "Admin",
+    ])
+    .catch("Email Action"),
 });
 
 const ItemClassificationSchema = z.object({

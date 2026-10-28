@@ -1,5 +1,6 @@
 :root {
   font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+  color-scheme: light;
 }
 
 * {
@@ -8,4 +9,107 @@
 
 body {
   margin: 0;
+  -webkit-font-smoothing: antialiased;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes dropdownSlide {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes wiggle {
+  0%, 100% {
+    transform: rotate(0deg);
+  }
+  20%, 60% {
+    transform: rotate(12deg);
+  }
+  40%, 80% {
+    transform: rotate(-12deg);
+  }
+}
+
+@keyframes shrinkProgress {
+  from {
+    width: 100%;
+  }
+  to {
+    width: 0%;
+  }
+}
+
+@keyframes pulseGlowRed {
+  0%, 100% {
+    box-shadow: 0 0 15px rgba(244, 63, 94, 0.45);
+  }
+  50% {
+    box-shadow: 0 0 28px rgba(244, 63, 94, 0.8);
+  }
+}
+
+@keyframes pulseGlowAmber {
+  0%, 100% {
+    box-shadow: 0 0 12px rgba(245, 158, 11, 0.35);
+  }
+  50% {
+    box-shadow: 0 0 24px rgba(245, 158, 11, 0.65);
+  }
+}
+
+.animate-slide-up {
+  animation: slideUp 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-dropdown {
+  animation: dropdownSlide 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-wiggle {
+  animation: wiggle 0.7s ease-in-out infinite;
+  transform-origin: top center;
+}
+
+.animate-shrink-progress {
+  animation: shrinkProgress 7s linear forwards;
+}
+
+.glow-red {
+  animation: pulseGlowRed 2s infinite ease-in-out;
+}
+
+.glow-amber {
+  animation: pulseGlowAmber 2.2s infinite ease-in-out;
+}
+
+/* Custom sleek scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.4);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.6);
 }

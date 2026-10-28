@@ -32,15 +32,17 @@ export class GeminiProvider implements AIProvider {
 
       const prompt = `
 You are an expert Executive Productivity Assistant.
-Analyze the following list of incoming communications (Emails, Slack messages, Jira tickets, Calendar events).
+Analyze the following list of incoming communications (Gmail emails, Slack messages, Jira tickets, Calendar events).
 
 Your goal is to:
-1. Identify the top 3-5 most critical tasks based on Urgency (time sensitivity) and Importance (business impact).
-2. Classify EVERY single input item into one of four categories: "Urgent", "Important", "Routine", or "Noise".
-3. Provide a reasoning for why the top items are prioritized.
-4. Suggest an immediate action for top items.
-5. Calculate a 'Productivity Score' (0-100).
-6. Provide distribution counts.
+1. Extract concrete action items and identify the top 3-5 most critical tasks based on Urgency (time sensitivity) and Importance (business impact).
+2. Calculate precise Urgency (0-100) and Importance (0-100) scores for each task.
+3. Tag each task with a clear category tag: "Email Action", "Meeting", "Blocker", or "Bug".
+4. Classify EVERY single input item into one of four categories: "Urgent", "Important", "Routine", or "Noise".
+5. Provide a clear reasoning for why the top items are prioritized.
+6. Suggest an immediate, high-leverage action for top items.
+7. Calculate an overall 'Productivity Score' (0-100).
+8. Provide accurate distribution counts.
 
 Input Data (PII-masked):
 ${JSON.stringify(promptItems)}
@@ -77,11 +79,11 @@ ${JSON.stringify(promptItems)}
                     },
                     urgencyScore: {
                       type: Type.NUMBER,
-                      description: "0-1 scale",
+                      description: "Urgency score from 0-100 or 0-1",
                     },
                     importanceScore: {
                       type: Type.NUMBER,
-                      description: "0-1 scale",
+                      description: "Importance score from 0-100 or 0-1",
                     },
                     reason: {
                       type: Type.STRING,
@@ -89,11 +91,20 @@ ${JSON.stringify(promptItems)}
                     },
                     suggestedAction: {
                       type: Type.STRING,
-                      description: "Next step to take",
+                      description: "Immediate next step to take",
                     },
                     category: {
                       type: Type.STRING,
-                      enum: ["Client", "Internal", "Project", "Admin"],
+                      enum: [
+                        "Email Action",
+                        "Meeting",
+                        "Blocker",
+                        "Bug",
+                        "Client",
+                        "Internal",
+                        "Project",
+                        "Admin",
+                      ],
                     },
                   },
                   required: [
