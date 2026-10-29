@@ -1,0 +1,20 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/:match*",
+      "destination": "https://focusflow-rp5v.onrender.com/api/:match*"
+    },
+    {
+      "source": "/auth/:match*",
+      "destination": "https://focusflow-rp5v.onrender.com/auth/:match*"
+    },
+    {
+      "source": "/health",
+      "destination": "https://focusflow-rp5v.onrender.com/health"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}
